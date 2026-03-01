@@ -4,6 +4,19 @@ Automatic model failover + failback guard for OpenClaw.
 
 When your primary model becomes unstable, this guard can switch to an available fallback model automatically, then switch back to the primary after stability is restored.
 
+```mermaid
+flowchart LR
+  A[Primary Model Healthy] -->|Check Interval| B{Primary Failures >= Threshold?}
+  B -->|No| A
+  B -->|Yes| C[Pick Fallback from Configured Models]
+  C --> D[Switch + Restart Gateway]
+  D --> E{Fallback Stable >= Recover Threshold?}
+  E -->|No| D
+  E -->|Yes| F[Try Failback to Primary]
+  F -->|Success| A
+  F -->|Fail| D
+```
+
 ---
 
 ## English
@@ -97,3 +110,11 @@ python3 scripts/failover.py loop
 
 - 状态：`~/.openclaw/failover-state.json`
 - 日志：`~/.openclaw/failover.log`
+
+### 一句话架构图
+
+```text
+主模型 -> (连续失败) -> 选择可用兜底 -> 稳定探测 -> 尝试切回主模型
+                         ^                              |
+                         +----------- 切回失败回退 -------+
+```
