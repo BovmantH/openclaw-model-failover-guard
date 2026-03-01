@@ -1,23 +1,16 @@
 ---
 name: model-failover-guard
-description: 自动模型故障切换守护（通用版）。从用户 openclaw.json 读取模型列表，主模型连续失败后自动切到可用兜底模型；支持稳定后自动切回主模型。适用于主模型偶发不可用时保证服务连续性。
-metadata:
-  {
-    "openclaw": {
-      "emoji": "🛡️",
-      "requires": { "bins": ["python3", "systemctl", "openclaw"] }
-    }
-  }
+description: 自动模型故障切换守护。当主模型连续失败时自动切换到可用兜底模型，稳定后自动尝试切回主模型。适用于保证 OpenClaw 服务连续性。
 ---
 
 # Model Failover Guard
 
-给 OpenClaw 提供“主模型故障自动切换 + 恢复自动切回”。
+给 OpenClaw 提供"主模型故障自动切换 + 恢复自动切回"。
 
-## 通用逻辑（不写死用户模型）
+## 通用逻辑
 
 1. 从用户 `~/.openclaw/openclaw.json` 读取当前默认主模型（或使用 `config.json` 指定 `primaryModel`）
-2. 主模型连续失败达到阈值后，从“所有已配置模型”里选择可用兜底
+2. 主模型连续失败达到阈值后，从"所有已配置模型"里选择可用兜底
 3. 兜底候选按 `preferredFallbackProvider` 优先，其余模型按字典序
 4. 在兜底稳定运行达到阈值后，尝试切回主模型
 5. 切回失败则立即回退到兜底，避免抖动
@@ -29,9 +22,9 @@ metadata:
 - `primaryModel`: 可空；空则自动使用 openclaw 当前默认主模型
 - `preferredFallbackProvider`: 可空；可指定你偏好的 fallback provider
 - `excludedProviders`: 不参与兜底的 provider 列表
-- `failThreshold`: 故障切换阈值
-- `recoverThreshold`: 切回阈值
-- `checkIntervalSec`: 检查间隔
+- `failThreshold`: 故障切换阈值（默认 3）
+- `recoverThreshold`: 切回阈值（默认 3）
+- `checkIntervalSec`: 检查间隔（默认 300 秒）
 
 ## 文件
 
