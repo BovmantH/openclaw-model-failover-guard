@@ -1,5 +1,9 @@
 # OpenClaw Model Failover Guard
 
+[English](#english) | [中文](#中文)
+
+<a id="english"></a>
+
 ```mermaid
 flowchart LR
   A[Primary Model Healthy] -->|Check Interval| B{Primary Failures >= Threshold?}
@@ -108,7 +112,22 @@ A: Not recommended. Run only one instance per machine.
 
 ---
 
+<a id="中文"></a>
+
 ## 中文
+
+```mermaid
+flowchart LR
+  A[主模型健康] -->|按间隔检查| B{连续失败达到阈值?}
+  B -->|否| A
+  B -->|是| C[从已配置模型中选择兜底]
+  C --> D[切换并重启 Gateway]
+  D --> E{兜底稳定达到切回阈值?}
+  E -->|否| D
+  E -->|是| F[尝试切回主模型]
+  F -->|成功| A
+  F -->|失败| D
+```
 
 这是一个 OpenClaw 模型自动故障切换 + 自动切回守护技能。
 
