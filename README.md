@@ -1,9 +1,5 @@
 # OpenClaw Model Failover Guard
 
-Automatic model failover + failback guard for OpenClaw.
-
-When your primary model becomes unstable, this guard can switch to an available fallback model automatically, then switch back to the primary after stability is restored.
-
 ```mermaid
 flowchart LR
   A[Primary Model Healthy] -->|Check Interval| B{Primary Failures >= Threshold?}
@@ -17,104 +13,56 @@ flowchart LR
   F -->|Fail| D
 ```
 
----
+| English | 中文 |
+|---|---|
+| Automatic model failover + failback guard for OpenClaw. | OpenClaw 模型自动故障切换 + 自动切回守护。 |
+| When primary model is unstable, switches to available fallback, then switches back after stability is restored. | 主模型不稳定时自动切到可用兜底，稳定后自动尝试切回主模型。 |
 
-## English
+## Overview / 概览
 
-### What it does
+| English | 中文 |
+|---|---|
+| Monitor model health on an interval. | 按固定间隔检测模型健康。 |
+| If primary fails N times consecutively → failover. | 主模型连续失败 N 次后触发故障切换。 |
+| Fallback is selected from **all configured models**. | 兜底模型从**全部已配置模型**中选择。 |
+| Supports preferred fallback provider. | 支持设置优先 fallback provider。 |
+| After fallback is stable for N checks → try failback. | 兜底稳定 N 次后尝试切回主模型。 |
+| If failback test fails → revert to fallback immediately. | 切回失败会立即回退到兜底，防止抖动。 |
 
-- Monitors OpenClaw model health on an interval
-- If primary fails N times consecutively → auto failover
-- Selects fallback from **all configured models**
-- Supports preferred fallback provider
-- After fallback is stable for N checks → attempts failback to primary
-- If failback test fails → reverts to current fallback
+## Files / 文件
 
-### Key design goals
+| Path | Purpose |
+|---|---|
+| `SKILL.md` | Skill definition / 技能定义 |
+| `config.example.json` | Config template / 配置模板 |
+| `scripts/failover.py` | Runtime guard script / 运行脚本 |
 
-- **Generic/public-ready** (not hardcoded to one user's models)
-- **Config-driven** behavior
-- **Auditability** (state + logs)
+## Config / 配置
 
-### Files
+Copy `config.example.json` to `config.json`.
 
-- `SKILL.md` — skill definition and usage notes
-- `config.example.json` — configurable defaults
-- `scripts/failover.py` — runtime guard script
+| Key | Description |
+|---|---|
+| `primaryModel` | Optional. Empty = use OpenClaw current default model / 可空，空则用当前默认主模型 |
+| `preferredFallbackProvider` | Optional preferred fallback provider / 可选优先兜底 provider |
+| `excludedProviders` | Providers excluded from fallback candidates / 不参与兜底的 provider |
+| `failThreshold` | Consecutive failures before failover / 触发故障切换的连续失败阈值 |
+| `recoverThreshold` | Stable checks before failback / 触发切回主模型的稳定阈值 |
+| `checkIntervalSec` | Health check interval / 检查间隔秒数 |
+| `testTimeoutSec` | Single test timeout / 单次测试超时 |
 
-### Configuration
-
-Copy `config.example.json` to `config.json` and edit:
-
-- `primaryModel`: optional; empty = use OpenClaw current default
-- `preferredFallbackProvider`: optional provider preference
-- `excludedProviders`: providers to exclude from fallback candidates
-- `failThreshold`, `recoverThreshold`
-- `checkIntervalSec`, `testTimeoutSec`
-
-### Run
-
-```bash
-python3 scripts/failover.py once
-python3 scripts/failover.py loop
-```
-
-### State and logs
-
-- State: `~/.openclaw/failover-state.json`
-- Log: `~/.openclaw/failover.log`
-
----
-
-## 中文
-
-### 功能说明
-
-- 按固定间隔检测 OpenClaw 当前模型健康
-- 主模型连续失败 N 次后自动切换到兜底模型
-- 兜底模型从**用户已配置的全部模型**中选择
-- 支持优先 provider
-- 兜底稳定运行 N 次后尝试自动切回主模型
-- 若切回测试失败，自动回退到当前兜底模型
-
-### 设计目标
-
-- **通用开源版**（不写死个人模型）
-- **配置驱动**（阈值/优先级可调）
-- **可审计**（状态文件 + 日志）
-
-### 文件结构
-
-- `SKILL.md`：技能定义与使用说明
-- `config.example.json`：配置模板
-- `scripts/failover.py`：守护脚本
-
-### 配置方式
-
-复制 `config.example.json` 为 `config.json` 后修改：
-
-- `primaryModel`：可空；空则读取 OpenClaw 当前默认模型
-- `preferredFallbackProvider`：优先兜底 provider
-- `excludedProviders`：排除的 provider
-- `failThreshold`、`recoverThreshold`
-- `checkIntervalSec`、`testTimeoutSec`
-
-### 运行方式
+## Run / 运行
 
 ```bash
 python3 scripts/failover.py once
 python3 scripts/failover.py loop
 ```
 
-### 状态与日志
+## State & Logs / 状态与日志
 
-- 状态：`~/.openclaw/failover-state.json`
-- 日志：`~/.openclaw/failover.log`
+- State / 状态：`~/.openclaw/failover-state.json`
+- Log / 日志：`~/.openclaw/failover.log`
 
-### 一句话架构图
+## License / 许可证
 
-```text
-主模型 -> (连续失败) -> 选择可用兜底 -> 稳定探测 -> 尝试切回主模型
-                         ^                              |
-                         +----------- 切回失败回退 -------+
-```
+MIT
