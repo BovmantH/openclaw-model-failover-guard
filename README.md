@@ -1,4 +1,16 @@
-# OpenClaw Model Failover Guard
+<script>
+function setLang(en) {
+  document.querySelectorAll('.en').forEach(e => e.style.display = en ? '' : 'none');
+  document.querySelectorAll('.zh').forEach(e => e.style.display = en ? 'none' : '');
+  document.querySelectorAll('.btn-en').forEach(e => e.style.fontWeight = en ? 'bold' : 'normal');
+  document.querySelectorAll('.btn-zh').forEach(e => e.style.fontWeight = en ? 'normal' : 'bold');
+}
+</script>
+
+<p>
+<button class="btn-en" onclick="setLang(true)">English</button>
+<button class="btn-zh" onclick="setLang(false)">中文</button>
+</p>
 
 ```mermaid
 flowchart LR
@@ -13,56 +25,116 @@ flowchart LR
   F -->|Fail| D
 ```
 
-| English | 中文 |
-|---|---|
-| Automatic model failover + failback guard for OpenClaw. | OpenClaw 模型自动故障切换 + 自动切回守护。 |
-| When primary model is unstable, switches to available fallback, then switches back after stability is restored. | 主模型不稳定时自动切到可用兜底，稳定后自动尝试切回主模型。 |
+<div class="en">
 
-## Overview / 概览
+# OpenClaw Model Failover Guard
 
-| English | 中文 |
-|---|---|
-| Monitor model health on an interval. | 按固定间隔检测模型健康。 |
-| If primary fails N times consecutively → failover. | 主模型连续失败 N 次后触发故障切换。 |
-| Fallback is selected from **all configured models**. | 兜底模型从**全部已配置模型**中选择。 |
-| Supports preferred fallback provider. | 支持设置优先 fallback provider。 |
-| After fallback is stable for N checks → try failback. | 兜底稳定 N 次后尝试切回主模型。 |
-| If failback test fails → revert to fallback immediately. | 切回失败会立即回退到兜底，防止抖动。 |
+Automatic model failover + failback guard for OpenClaw.
 
-## Files / 文件
+When your primary model becomes unstable, this guard can switch to an available fallback model automatically, then switch back to the primary after stability is restored.
+
+## Overview
+
+- Monitor model health on an interval
+- If primary fails N times consecutively → failover
+- Fallback is selected from **all configured models**
+- Supports preferred fallback provider
+- After fallback is stable for N checks → try failback
+- If failback test fails → revert to fallback immediately
+
+## Files
 
 | Path | Purpose |
 |---|---|
-| `SKILL.md` | Skill definition / 技能定义 |
-| `config.example.json` | Config template / 配置模板 |
-| `scripts/failover.py` | Runtime guard script / 运行脚本 |
+| `SKILL.md` | Skill definition |
+| `config.example.json` | Config template |
+| `scripts/failover.py` | Runtime guard script |
 
-## Config / 配置
+## Config
 
 Copy `config.example.json` to `config.json`.
 
 | Key | Description |
 |---|---|
-| `primaryModel` | Optional. Empty = use OpenClaw current default model / 可空，空则用当前默认主模型 |
-| `preferredFallbackProvider` | Optional preferred fallback provider / 可选优先兜底 provider |
-| `excludedProviders` | Providers excluded from fallback candidates / 不参与兜底的 provider |
-| `failThreshold` | Consecutive failures before failover / 触发故障切换的连续失败阈值 |
-| `recoverThreshold` | Stable checks before failback / 触发切回主模型的稳定阈值 |
-| `checkIntervalSec` | Health check interval / 检查间隔秒数 |
-| `testTimeoutSec` | Single test timeout / 单次测试超时 |
+| `primaryModel` | Optional. Empty = use OpenClaw current default model |
+| `preferredFallbackProvider` | Optional preferred fallback provider |
+| `excludedProviders` | Providers excluded from fallback candidates |
+| `failThreshold` | Consecutive failures before failover |
+| `recoverThreshold` | Stable checks before failback |
+| `checkIntervalSec` | Health check interval (seconds) |
+| `testTimeoutSec` | Single test timeout (seconds) |
 
-## Run / 运行
+## Run
 
 ```bash
 python3 scripts/failover.py once
 python3 scripts/failover.py loop
 ```
 
-## State & Logs / 状态与日志
+## State & Logs
 
-- State / 状态：`~/.openclaw/failover-state.json`
-- Log / 日志：`~/.openclaw/failover.log`
+- State: `~/.openclaw/failover-state.json`
+- Log: `~/.openclaw/failover.log`
 
-## License / 许可证
+## License
 
 MIT
+
+</div>
+
+<div class="zh" style="display:none;">
+
+# OpenClaw Model Failover Guard
+
+OpenClaw 模型自动故障切换 + 自动切回守护。
+
+当主模型不稳定时，守护进程会自动切换到可用的兜底模型，并在稳定后自动尝试切回主模型。
+
+## 概览
+
+- 按固定间隔检测模型健康
+- 主模型连续失败 N 次后触发故障切换
+- 兜底模型从**全部已配置模型**中选择
+- 支持设置优先 fallback provider
+- 兜底稳定 N 次后尝试切回主模型
+- 切回失败会立即回退到兜底，防止抖动
+
+## 文件
+
+| 路径 | 用途 |
+|---|---|
+| `SKILL.md` | 技能定义 |
+| `config.example.json` | 配置模板 |
+| `scripts/failover.py` | 运行脚本 |
+
+## 配置
+
+复制 `config.example.json` 为 `config.json`。
+
+| 键 | 说明 |
+|---|---|
+| `primaryModel` | 可选；空则使用 OpenClaw 当前默认主模型 |
+| `preferredFallbackProvider` | 可选的优先兜底 provider |
+| `excludedProviders` | 不参与兜底的 provider 列表 |
+| `failThreshold` | 触发故障切换的连续失败阈值 |
+| `recoverThreshold` | 触发切回主模型的稳定检查阈值 |
+| `checkIntervalSec` | 健康检查间隔（秒） |
+| `testTimeoutSec` | 单次测试超时（秒） |
+
+## 运行
+
+```bash
+python3 scripts/failover.py once
+python3 scripts/failover.py loop
+```
+
+## 状态与日志
+
+- 状态：`~/.openclaw/failover-state.json`
+- 日志：`~/.openclaw/failover.log`
+
+## 许可证
+
+MIT
+
+</div>
