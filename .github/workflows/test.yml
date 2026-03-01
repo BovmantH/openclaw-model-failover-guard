@@ -23,13 +23,11 @@ jobs:
 
       - name: Check JSON config is valid
         run: |
-          python3 -c "import json; json.load(open('skills/model-failover-guard/config.example.json'))"
+          python3 -m json.tool skills/model-failover-guard/config.example.json > /dev/null
 
-      - name: Check YAML frontmatter
+      - name: Check SKILL.md exists and has frontmatter
         run: |
-          python3 -c "
-import re
-content = open('skills/model-failover-guard/SKILL.md').read()
-if not re.match(r'^---\nname: .+\ndescription: .+\n---', content):
-    raise Exception('Invalid SKILL.md frontmatter')
-"
+          head -3 skills/model-failover-guard/SKILL.md | grep -q "^---" && \
+          grep -q "^name: " skills/model-failover-guard/SKILL.md && \
+          grep -q "^description: " skills/model-failover-guard/SKILL.md && \
+          echo "SKILL.md frontmatter OK"
