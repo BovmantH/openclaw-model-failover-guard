@@ -1,0 +1,16 @@
+[Unit]
+Description=OpenClaw Model Failover Guard
+After=network.target
+
+[Service]
+Type=simple
+User=%u
+WorkingDirectory=%h
+ExecStart=/usr/bin/python3 %h/.openclaw/workspace/skills/model-failover-guard/scripts/failover.py loop
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

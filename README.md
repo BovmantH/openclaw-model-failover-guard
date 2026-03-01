@@ -97,6 +97,46 @@ python3 skills/model-failover-guard/scripts/failover.py loop
 
 ---
 
+## Run as Systemd Service (Linux) / 作为 Systemd 服务运行
+
+### Install service / 安装服务
+
+```bash
+mkdir -p ~/.config/systemd/user
+cp skills/model-failover-guard/openclaw-model-failover.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+```
+
+### Enable & Start / 启用并启动
+
+```bash
+systemctl --user enable --now openclaw-model-failover
+```
+
+### Logs / 查看日志
+
+```bash
+journalctl --user -u openclaw-model-failover -f
+```
+
+---
+
+## FAQ / 常见问题
+
+**Q: 切不回主模型怎么办？**  
+A: 检查日志 `~/.openclaw/failover.log`，确认主模型是否真的恢复了。可以手动运行 `python3 skills/model-failover-guard/scripts/failover.py once` 看测试结果。
+
+**Q: 日志文件太大怎么办？**  
+A: 可以定期清理或用 `logrotate`。例如：`echo "" > ~/.openclaw/failover.log`
+
+**Q: 如何完全停止守护？**  
+A: `systemctl --user stop openclaw-model-failover`（如果用了 systemd），或者直接 kill 进程。
+
+**Q: 可以同时跑多个实例吗？**  
+A: 不建议，会产生冲突。同一台机器只跑一个实例。
+
+---
+
 ## License / 许可证
 
 MIT License

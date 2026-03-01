@@ -1,0 +1,35 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Check Python syntax
+        run: |
+          python3 -m py_compile skills/model-failover-guard/scripts/failover.py
+
+      - name: Check JSON config is valid
+        run: |
+          python3 -c "import json; json.load(open('skills/model-failover-guard/config.example.json'))"
+
+      - name: Check YAML frontmatter
+        run: |
+          python3 -c "
+import re
+content = open('skills/model-failover-guard/SKILL.md').read()
+if not re.match(r'^---\nname: .+\ndescription: .+\n---', content):
+    raise Exception('Invalid SKILL.md frontmatter')
+"
