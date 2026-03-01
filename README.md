@@ -13,7 +13,7 @@ When your primary model becomes unstable, this guard can switch to an available 
 - Monitors OpenClaw model health on an interval
 - If primary fails N times consecutively → auto failover
 - Selects fallback from **all configured models**
-- Supports preferred fallback provider (e.g. `baishanyun`)
+- Supports preferred fallback provider
 - After fallback is stable for N checks → attempts failback to primary
 - If failback test fails → reverts to current fallback
 
@@ -60,7 +60,7 @@ python3 scripts/failover.py loop
 - 按固定间隔检测 OpenClaw 当前模型健康
 - 主模型连续失败 N 次后自动切换到兜底模型
 - 兜底模型从**用户已配置的全部模型**中选择
-- 支持优先 provider（如 `baishanyun`）
+- 支持优先 provider
 - 兜底稳定运行 N 次后尝试自动切回主模型
 - 若切回测试失败，自动回退到当前兜底模型
 

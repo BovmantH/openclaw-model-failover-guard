@@ -27,7 +27,7 @@ metadata:
 复制 `config.example.json` 为 `config.json` 并按需修改：
 
 - `primaryModel`: 可空；空则自动使用 openclaw 当前默认主模型
-- `preferredFallbackProvider`: 可空；建议填你偏好的 provider（如 `baishanyun`）
+- `preferredFallbackProvider`: 可空；可指定你偏好的 fallback provider
 - `excludedProviders`: 不参与兜底的 provider 列表
 - `failThreshold`: 故障切换阈值
 - `recoverThreshold`: 切回阈值
