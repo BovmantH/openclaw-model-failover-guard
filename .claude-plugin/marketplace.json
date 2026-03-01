@@ -1,0 +1,22 @@
+{
+  "name": "openclaw-model-failover-guard",
+  "owner": {
+    "name": "BovmantH",
+    "email": ""
+  },
+  "metadata": {
+    "description": "OpenClaw model failover guard - automatic model switching when primary fails",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "model-failover-guard",
+      "description": "Automatic model failover + failback for OpenClaw",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/model-failover-guard"
+      ]
+    }
+  ]
+}
