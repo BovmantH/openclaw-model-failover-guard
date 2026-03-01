@@ -1,16 +1,7 @@
-<script>
-function setLang(en) {
-  document.querySelectorAll('.en').forEach(e => e.style.display = en ? '' : 'none');
-  document.querySelectorAll('.zh').forEach(e => e.style.display = en ? 'none' : '');
-  document.querySelectorAll('.btn-en').forEach(e => e.style.fontWeight = en ? 'bold' : 'normal');
-  document.querySelectorAll('.btn-zh').forEach(e => e.style.fontWeight = en ? 'normal' : 'bold');
-}
-</script>
+<details>
+<summary><b>English</b></summary>
 
-<p>
-<button class="btn-en" onclick="setLang(true)">English</button>
-<button class="btn-zh" onclick="setLang(false)">中文</button>
-</p>
+# OpenClaw Model Failover Guard
 
 ```mermaid
 flowchart LR
@@ -24,10 +15,6 @@ flowchart LR
   F -->|Success| A
   F -->|Fail| D
 ```
-
-<div class="en">
-
-# OpenClaw Model Failover Guard
 
 Automatic model failover + failback guard for OpenClaw.
 
@@ -80,9 +67,10 @@ python3 scripts/failover.py loop
 
 MIT
 
-</div>
+</details>
 
-<div class="zh" style="display:none;">
+<details>
+<summary><b>中文</b></summary>
 
 # OpenClaw Model Failover Guard
 
@@ -137,4 +125,4 @@ python3 scripts/failover.py loop
 
 MIT
 
-</div>
+</details>
