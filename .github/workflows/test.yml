@@ -31,3 +31,9 @@ jobs:
           grep -q "^name: " skills/model-failover-guard/SKILL.md && \
           grep -q "^description: " skills/model-failover-guard/SKILL.md && \
           echo "SKILL.md frontmatter OK"
+
+      - name: Check required files exist
+        run: |
+          test -f skills/model-failover-guard/openclaw-model-failover.service
+          test -f .claude-plugin/marketplace.json
+          echo "Required files OK"

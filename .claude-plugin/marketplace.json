@@ -2,7 +2,7 @@
   "name": "openclaw-model-failover-guard",
   "owner": {
     "name": "BovmantH",
-    "email": ""
+    "email": "bovmanth@users.noreply.github.com"
   },
   "metadata": {
     "description": "OpenClaw model failover guard - automatic model switching when primary fails",
