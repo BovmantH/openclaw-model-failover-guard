@@ -21,6 +21,8 @@ flowchart LR
 
 ## English
 
+Skill name: `model-failover-guard`
+
 
 Keywords: openclaw skill, model failover, automatic failback, model routing, reliability, high availability
 
