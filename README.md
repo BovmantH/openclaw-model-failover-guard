@@ -21,6 +21,9 @@ flowchart LR
 
 ## English
 
+
+Keywords: openclaw skill, model failover, automatic failback, model routing, reliability, high availability
+
 Automatic model failover + failback guard for OpenClaw.
 
 When your primary model becomes unstable, this guard can switch to an available fallback model automatically, then switch back to the primary after stability is restored.
@@ -37,7 +40,7 @@ When your primary model becomes unstable, this guard can switch to an available 
 ### Install
 
 ```bash
-npx skills add https://github.com/BovmantH/openclaw-model-failover-guard.git --skill model-failover-guard
+npx skills add BovmantH/openclaw-model-failover-guard --skill model-failover-guard
 ```
 
 ### Files
@@ -80,7 +83,7 @@ python3 skills/model-failover-guard/scripts/failover.py loop
 
 ```bash
 mkdir -p ~/.config/systemd/user
-cp skills/model-failover-guard/skills/model-failover-guard/openclaw-model-failover.service ~/.config/systemd/user/
+cp skills/model-failover-guard/openclaw-model-failover.service ~/.config/systemd/user/
 systemctl --user daemon-reload
 ```
 
@@ -145,7 +148,7 @@ flowchart LR
 ### 安装
 
 ```bash
-npx skills add https://github.com/BovmantH/openclaw-model-failover-guard.git --skill model-failover-guard
+npx skills add BovmantH/openclaw-model-failover-guard --skill model-failover-guard
 ```
 
 ### 文件
@@ -188,7 +191,7 @@ python3 skills/model-failover-guard/scripts/failover.py loop
 
 ```bash
 mkdir -p ~/.config/systemd/user
-cp skills/model-failover-guard/skills/model-failover-guard/openclaw-model-failover.service ~/.config/systemd/user/
+cp skills/model-failover-guard/openclaw-model-failover.service ~/.config/systemd/user/
 systemctl --user daemon-reload
 ```
 

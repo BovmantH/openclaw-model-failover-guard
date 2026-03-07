@@ -1,6 +1,6 @@
 ---
 name: model-failover-guard
-description: 自动模型故障切换守护。当主模型连续失败时自动切换到可用兜底模型，稳定后自动尝试切回主模型。适用于保证 OpenClaw 服务连续性。
+description: 自动模型故障切换守护（failover/failback）。当主模型连续失败时自动切换到可用兜底模型，稳定后自动尝试切回主模型。Use when OpenClaw model endpoints are unstable and you need service continuity with automatic rollback and audit logs.
 ---
 
 # Model Failover Guard
