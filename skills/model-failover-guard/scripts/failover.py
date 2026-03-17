@@ -85,6 +85,11 @@ def log(msg: str):
     with R['LOG_PATH'].open('a', encoding='utf-8') as f:
         f.write(line + '\n')
 
+def log_json(event: str, **fields):
+    payload = {'event': event, **fields}
+    log('JSON ' + json.dumps(payload, ensure_ascii=False))
+
+
 
 def load_state():
     if R['STATE_PATH'].exists():
@@ -350,6 +355,7 @@ def pick_working_fallback(cfg, target_primary, state):
             continue
         if not _compatibility_ok(cfg, target_primary, m):
             log(f'candidate filtered by compatibility: {m}')
+            log_json('candidate_filtered', model=m, reason='compatibility')
             continue
         candidates.append(m)
 
@@ -359,6 +365,7 @@ def pick_working_fallback(cfg, target_primary, state):
         return None, 'no fallback candidates'
 
     log(f'candidate pool: {candidates}')
+    log_json('candidate_pool', candidates=candidates)
 
     for c in candidates:
         if _should_probe():
@@ -403,6 +410,7 @@ def run_once():
         state['consecutive_failures'] = int(state.get('consecutive_failures', 0)) + 1
         save_state(state)
         log(f'primary failed ({state["consecutive_failures"]}/{R["FAIL_THRESHOLD"]}): {detail}')
+        log_json('primary_failed', failures=state["consecutive_failures"], threshold=R["FAIL_THRESHOLD"], detail=detail)
 
         err_type = _classify_error(detail)
         if err_type not in R['FAILOVER_ON_ERRORS']:
@@ -413,6 +421,7 @@ def run_once():
             next_model, reason = pick_working_fallback(cfg, target_primary, state)
             if not next_model:
                 log(f'FAILOVER ABORT: {reason}')
+                log_json('failover_abort', reason=reason)
                 save_state(state)
                 apply_primary(cfg, target_primary)
                 return 2
@@ -426,6 +435,7 @@ def run_once():
             state['consecutive_fallback_health'] = 0
             save_state(state)
             log(f'FAILOVER DONE: {target_primary} -> {next_model}')
+            log_json('failover_switch', from_model=target_primary, to_model=next_model)
         return 0
 
     # running on fallback
@@ -457,6 +467,7 @@ def run_once():
                 state['primary_cooldown_until'] = 0
                 save_state(state)
                 log(f'FAILBACK DONE: {current} -> {target_primary}')
+                log_json('failback_switch', from_model=current, to_model=target_primary)
                 return 0
 
             apply_primary(cfg, current)
@@ -465,6 +476,7 @@ def run_once():
                 state['primary_cooldown_until'] = _now_ts() + R['PRIMARY_COOLDOWN_SEC']
             save_state(state)
             log(f'FAILBACK ABORT: primary still unstable, reverted to {current}. detail={detail2}')
+            log_json('failback_abort', from_model=target_primary, to_model=current, detail=detail2)
             return 0
     else:
         if state.get('consecutive_fallback_health', 0) != 0:
