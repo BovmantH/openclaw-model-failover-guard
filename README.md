@@ -31,16 +31,19 @@ Keywords: openclaw skill, model failover, automatic failback, model routing, rel
 
 Automatic model failover + failback guard for OpenClaw.
 
+> This guard performs model failover and failback. It does **not** adapt request payloads across heterogeneous providers. Use only pre-validated compatible fallback candidates.
+
 When your primary model becomes unstable, this guard can switch to an available fallback model automatically, then switch back to the primary after stability is restored.
 
 ### Overview
 
 - Monitor model health on an interval
 - If primary fails N times consecutively → failover
-- Fallback is selected from **all configured models**
-- Supports preferred fallback provider
-- After fallback is stable for N checks → try failback
-- If failback test fails → revert to fallback immediately
+- Build a candidate pool (prefer `allowedFallbacks` if set)
+- Filter by excluded providers, cooldown, and compatibility rules
+- Probe candidates before switching (optional)
+- After fallback is stable for N checks → probe primary and try failback
+- If failback test fails → revert to fallback and apply primary cooldown
 
 ### Install
 
@@ -65,6 +68,14 @@ Copy `config.example.json` to `config.json`.
 | `primaryModel` | Optional. Empty = use OpenClaw current default model |
 | `preferredFallbackProvider` | Optional preferred fallback provider |
 | `excludedProviders` | Providers excluded from fallback candidates |
+| `allowedFallbacks` | Optional allowlist of fallback models |
+| `compatibility` | Optional compatibility rules (API / reasoning / tools / streaming) |
+| `candidateProbe` | Probe candidates before switching |
+| `failbackProbe` | Probe primary before failback |
+| `candidateCooldown` | Cooldown durations for failed candidates |
+| `primaryCooldownSec` | Cooldown after failed failback |
+| `failoverOnErrors` | Error types that can trigger failover |
+| `ignoreErrors` | Error types that should never trigger failover |
 | `failThreshold` | Consecutive failures before failover |
 | `recoverThreshold` | Stable checks before failback |
 | `checkIntervalSec` | Health check interval (seconds) |
@@ -142,16 +153,19 @@ flowchart LR
 
 这是一个 OpenClaw 模型自动故障切换 + 自动切回守护技能。
 
+> 该守护器只负责 failover / failback，不会自动适配不同 provider 的请求协议。请只使用已验证兼容的兜底候选。
+
 当主模型不稳定时，守护进程会自动切换到可用的兜底模型，并在稳定后自动尝试切回主模型。
 
 ### 概览
 
 - 按固定间隔检测模型健康
 - 主模型连续失败 N 次后触发故障切换
-- 兜底模型从**全部已配置模型**中选择
-- 支持设置优先 fallback provider
-- 兜底稳定 N 次后尝试切回主模型
-- 切回失败会立即回退到兜底，防止抖动
+- 构建候选池（优先使用 `allowedFallbacks`）
+- 过滤：排除 provider / 冷却 / 兼容性规则
+- 切换前可探测候选
+- 兜底稳定 N 次后探测主模型并尝试切回
+- 切回失败会回退兜底并进入主模型冷却
 
 ### 安装
 
@@ -176,6 +190,14 @@ npx skills add BovmantH/openclaw-model-failover-guard --skill model-failover-gua
 | `primaryModel` | 可选；空则使用 OpenClaw 当前默认主模型 |
 | `preferredFallbackProvider` | 可选的优先兜底 provider |
 | `excludedProviders` | 不参与兜底的 provider 列表 |
+| `allowedFallbacks` | 可选；兜底模型白名单 |
+| `compatibility` | 可选；兼容性规则（API/推理/工具/流式） |
+| `candidateProbe` | 切换前候选探测 |
+| `failbackProbe` | 切回前主模型探测 |
+| `candidateCooldown` | 候选失败后的冷却时间 |
+| `primaryCooldownSec` | 切回失败后的主模型冷却 |
+| `failoverOnErrors` | 允许触发 failover 的错误类型 |
+| `ignoreErrors` | 明确不触发 failover 的错误类型 |
 | `failThreshold` | 触发故障切换的连续失败阈值 |
 | `recoverThreshold` | 触发切回主模型的稳定检查阈值 |
 | `checkIntervalSec` | 健康检查间隔（秒） |
