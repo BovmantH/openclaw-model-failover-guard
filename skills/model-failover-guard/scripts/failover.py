@@ -21,6 +21,18 @@ def load_runtime_config():
         'primaryModel': '',
         'preferredFallbackProvider': '',
         'excludedProviders': [],
+        'allowedFallbacks': [],
+        'candidateProbe': {
+            'enabled': True,
+            'timeoutSec': 30,
+        },
+        'candidateCooldown': {
+            'defaultSec': 600,
+            'ban400Sec': 3600,
+            'ban401Sec': 1800,
+            'ban403Sec': 1800,
+        },
+        'failoverOnErrors': ['http_429', 'http_5xx', 'timeout', 'connection'],
         'failThreshold': 3,
         'recoverThreshold': 3,
         'checkIntervalSec': 300,
@@ -41,6 +53,10 @@ def load_runtime_config():
     cfg['CHECK_INTERVAL_SEC'] = int(cfg['checkIntervalSec'])
     cfg['TEST_TIMEOUT_SEC'] = int(cfg['testTimeoutSec'])
     cfg['EXCLUDED_PROVIDERS'] = set(cfg.get('excludedProviders') or [])
+    cfg['ALLOWED_FALLBACKS'] = [m for m in (cfg.get('allowedFallbacks') or []) if isinstance(m, str)]
+    cfg['CANDIDATE_PROBE'] = cfg.get('candidateProbe') or {}
+    cfg['CANDIDATE_COOLDOWN'] = cfg.get('candidateCooldown') or {}
+    cfg['FAILOVER_ON_ERRORS'] = set(cfg.get('failoverOnErrors') or [])
     return cfg
 
 
@@ -67,6 +83,7 @@ def load_state():
         'consecutive_fallback_health': 0,
         'last_switch': None,
         'current_fallback': None,
+        'candidate_health': {},
     }
 
 
@@ -81,6 +98,10 @@ def load_openclaw_config():
 
 def save_openclaw_config(cfg):
     R['CONFIG_PATH'].write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding='utf-8')
+
+
+def _now_ts():
+    return int(time.time())
 
 
 def get_primary_model(cfg):
@@ -123,6 +144,53 @@ def rank_candidates(models):
     return sorted(models, key=rank)
 
 
+def _classify_error(detail: str):
+    d = (detail or '').lower()
+    if 'timeout' in d or 'timed out' in d:
+        return 'timeout'
+    if 'connection' in d or 'conn' in d:
+        return 'connection'
+    if 'http 429' in d or '429' in d:
+        return 'http_429'
+    if 'http 401' in d or '401' in d:
+        return 'http_401'
+    if 'http 403' in d or '403' in d:
+        return 'http_403'
+    if 'http 400' in d or '400' in d:
+        return 'http_400'
+    if 'http 5' in d or ' 5' in d:
+        return 'http_5xx'
+    return 'unknown'
+
+
+def _cooldown_for_error(err_type: str):
+    cd = R.get('CANDIDATE_COOLDOWN') or {}
+    if err_type == 'http_400':
+        return int(cd.get('ban400Sec', 0) or 0)
+    if err_type == 'http_401':
+        return int(cd.get('ban401Sec', 0) or 0)
+    if err_type == 'http_403':
+        return int(cd.get('ban403Sec', 0) or 0)
+    return int(cd.get('defaultSec', 0) or 0)
+
+
+def _is_in_cooldown(state, model_id: str):
+    h = (state.get('candidate_health') or {}).get(model_id) or {}
+    until = h.get('cooldownUntil') or 0
+    return until and _now_ts() < int(until)
+
+
+def _mark_candidate_failure(state, model_id: str, err_type: str, detail: str):
+    cd = _cooldown_for_error(err_type)
+    health = state.setdefault('candidate_health', {})
+    entry = health.setdefault(model_id, {})
+    entry['lastErrorType'] = err_type
+    entry['lastError'] = detail[-500:]
+    entry['failCount'] = int(entry.get('failCount') or 0) + 1
+    if cd > 0:
+        entry['cooldownUntil'] = _now_ts() + cd
+
+
 def test_current_default_model():
     cmd = [
         'openclaw', 'agent', '--agent', 'main',
@@ -147,19 +215,43 @@ def apply_primary(cfg, model_id: str):
     subprocess.run(['openclaw', 'gateway', 'restart'], capture_output=True, text=True)
 
 
+def _should_probe():
+    probe = R.get('CANDIDATE_PROBE') or {}
+    return bool(probe.get('enabled', True))
+
+
+def _probe_timeout():
+    probe = R.get('CANDIDATE_PROBE') or {}
+    return int(probe.get('timeoutSec', 30) or 30)
+
+
+def _probe_candidate(cfg, candidate_model):
+    old = R['TEST_TIMEOUT_SEC']
+    R['TEST_TIMEOUT_SEC'] = _probe_timeout()
+    try:
+        return try_switch_and_test(cfg, candidate_model)
+    finally:
+        R['TEST_TIMEOUT_SEC'] = old
+
+
 def try_switch_and_test(cfg, candidate_model):
     apply_primary(cfg, candidate_model)
     return test_current_default_model()
 
 
-def pick_working_fallback(cfg, target_primary):
+def pick_working_fallback(cfg, target_primary, state):
     all_models = list_configured_models(cfg)
+    allowed = R.get('ALLOWED_FALLBACKS') or []
     candidates = []
     for m in all_models:
         if m == target_primary:
             continue
+        if allowed and m not in allowed:
+            continue
         provider = m.split('/', 1)[0]
         if provider in R['EXCLUDED_PROVIDERS']:
+            continue
+        if _is_in_cooldown(state, m):
             continue
         candidates.append(m)
 
@@ -169,10 +261,15 @@ def pick_working_fallback(cfg, target_primary):
         return None, 'no fallback candidates'
 
     for c in candidates:
-        ok, detail = try_switch_and_test(cfg, c)
+        if _should_probe():
+            ok, detail = _probe_candidate(cfg, c)
+        else:
+            ok, detail = try_switch_and_test(cfg, c)
         log(f'fallback switch-test: {c} -> {"OK" if ok else "FAIL"}')
         if ok:
             return c, 'ok'
+        err_type = _classify_error(detail)
+        _mark_candidate_failure(state, c, err_type, detail)
     return None, 'all candidates failed'
 
 
@@ -201,10 +298,16 @@ def run_once():
         save_state(state)
         log(f'primary failed ({state["consecutive_failures"]}/{R["FAIL_THRESHOLD"]}): {detail}')
 
+        err_type = _classify_error(detail)
+        if err_type not in R['FAILOVER_ON_ERRORS']:
+            log(f'primary error not eligible for failover: {err_type}')
+            return 0
+
         if state['consecutive_failures'] >= R['FAIL_THRESHOLD']:
-            next_model, reason = pick_working_fallback(cfg, target_primary)
+            next_model, reason = pick_working_fallback(cfg, target_primary, state)
             if not next_model:
                 log(f'FAILOVER ABORT: {reason}')
+                save_state(state)
                 apply_primary(cfg, target_primary)
                 return 2
             state['last_switch'] = {

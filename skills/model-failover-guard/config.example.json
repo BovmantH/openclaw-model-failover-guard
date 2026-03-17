@@ -5,6 +5,18 @@
   "primaryModel": "",
   "preferredFallbackProvider": "",
   "excludedProviders": [],
+  "allowedFallbacks": [],
+  "candidateProbe": {
+    "enabled": true,
+    "timeoutSec": 30
+  },
+  "candidateCooldown": {
+    "defaultSec": 600,
+    "ban400Sec": 3600,
+    "ban401Sec": 1800,
+    "ban403Sec": 1800
+  },
+  "failoverOnErrors": ["http_429", "http_5xx", "timeout", "connection"],
   "failThreshold": 3,
   "recoverThreshold": 3,
   "checkIntervalSec": 300,
