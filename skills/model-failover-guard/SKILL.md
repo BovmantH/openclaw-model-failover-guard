@@ -44,6 +44,7 @@ Example compatibility rules:
 - `compatibility`: Optional compatibility rules for fallback selection
 - `candidateCooldown`: Cooldown durations for candidates that fail probes
 - `failoverOnErrors`: Error types that can trigger failover (default: http_429, http_5xx, timeout, connection)
+- `ignoreErrors`: Error types that should never trigger failover (default: http_4xx)
 - `failThreshold`: Failover threshold (default: 3)
 - `recoverThreshold`: Failback threshold (default: 3)
 - `checkIntervalSec`: Check interval (default: 300 seconds)
@@ -121,6 +122,7 @@ Example:
 - \`compatibility\`: 兜底候选兼容性规则（可选）
 - \`candidateCooldown\`: 候选失败后的冷却时间配置
 - \`failoverOnErrors\`: 允许触发 failover 的错误类型（默认 http_429, http_5xx, timeout, connection）
+- \`ignoreErrors\`: 明确不触发 failover 的错误类型（默认 http_4xx）
 - \`failThreshold\`: 故障切换阈值（默认 3）
 - \`recoverThreshold\`: 切回阈值（默认 3）
 - \`checkIntervalSec\`: 检查间隔（默认 300 秒）

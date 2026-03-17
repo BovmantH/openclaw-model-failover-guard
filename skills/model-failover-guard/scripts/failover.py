@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import json, os, subprocess, sys, time
+import json, os, re, subprocess, sys, time
 from pathlib import Path
 
 HOME = Path.home()
@@ -44,6 +44,7 @@ def load_runtime_config():
             'ban403Sec': 1800,
         },
         'failoverOnErrors': ['http_429', 'http_5xx', 'timeout', 'connection'],
+        'ignoreErrors': ['http_4xx'],
         'failThreshold': 3,
         'recoverThreshold': 3,
         'checkIntervalSec': 300,
@@ -69,6 +70,7 @@ def load_runtime_config():
     cfg['FAILBACK_PROBE'] = cfg.get('failbackProbe') or {}
     cfg['CANDIDATE_COOLDOWN'] = cfg.get('candidateCooldown') or {}
     cfg['FAILOVER_ON_ERRORS'] = set(cfg.get('failoverOnErrors') or [])
+    cfg['IGNORE_ERRORS'] = set(cfg.get('ignoreErrors') or [])
     cfg['PRIMARY_COOLDOWN_SEC'] = int(cfg.get('primaryCooldownSec', 0) or 0)
     cfg['COMPATIBILITY'] = cfg.get('compatibility') or {}
     return cfg
@@ -153,31 +155,46 @@ def get_target_primary(cfg):
     return R['primaryModel'] or configured_primary
 
 
-def rank_candidates(models):
+
+
+def _candidate_score(state, model_id: str):
+    # lower is better
+    h = (state.get('candidate_health') or {}).get(model_id) or {}
+    fail_count = int(h.get('failCount') or 0)
+    provider = model_id.split('/', 1)[0]
     preferred = R.get('preferredFallbackProvider') or ''
+    provider_rank = 0 if (preferred and provider == preferred) else 1
+    return (provider_rank, fail_count, model_id)
 
-    def rank(model_id: str):
-        provider = model_id.split('/', 1)[0]
-        pref_rank = 0 if (preferred and provider == preferred) else 1
-        return (pref_rank, model_id)
 
-    return sorted(models, key=rank)
+def rank_candidates(models, state):
+    return sorted(models, key=lambda m: _candidate_score(state, m))
 
 
 def _classify_error(detail: str):
     d = (detail or '').lower()
+    # explicit keywords
     if 'timeout' in d or 'timed out' in d:
         return 'timeout'
     if 'connection' in d or 'conn' in d:
         return 'connection'
-    if 'http 429' in d or '429' in d:
+
+    # try to extract HTTP status code
+    m = re.search(r'\b(\d{3})\b', d)
+    code = int(m.group(1)) if m else None
+    if code == 429:
         return 'http_429'
-    if 'http 401' in d or '401' in d:
+    if code == 401:
         return 'http_401'
-    if 'http 403' in d or '403' in d:
+    if code == 403:
         return 'http_403'
-    if 'http 400' in d or '400' in d:
+    if code == 400:
         return 'http_400'
+    if code and 400 <= code < 500:
+        return 'http_4xx'
+    if code and 500 <= code < 600:
+        return 'http_5xx'
+
     if 'http 5' in d or ' 5' in d:
         return 'http_5xx'
     return 'unknown'
@@ -359,13 +376,13 @@ def pick_working_fallback(cfg, target_primary, state):
             continue
         candidates.append(m)
 
-    candidates = rank_candidates(candidates)
+    candidates = rank_candidates(candidates, state)
 
     if not candidates:
         return None, 'no fallback candidates'
 
     log(f'candidate pool: {candidates}')
-    log_json('candidate_pool', candidates=candidates)
+    log_json('candidate_pool', candidates=candidates, scores={m: _candidate_score(state, m) for m in candidates})
 
     for c in candidates:
         if _should_probe():
@@ -413,6 +430,9 @@ def run_once():
         log_json('primary_failed', failures=state["consecutive_failures"], threshold=R["FAIL_THRESHOLD"], detail=detail)
 
         err_type = _classify_error(detail)
+        if err_type in R['IGNORE_ERRORS']:
+            log(f'primary error ignored: {err_type}')
+            return 0
         if err_type not in R['FAILOVER_ON_ERRORS']:
             log(f'primary error not eligible for failover: {err_type}')
             return 0

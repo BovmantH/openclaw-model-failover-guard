@@ -28,6 +28,7 @@
     "ban403Sec": 1800
   },
   "failoverOnErrors": ["http_429", "http_5xx", "timeout", "connection"],
+  "ignoreErrors": ["http_4xx"],
   "failThreshold": 3,
   "recoverThreshold": 3,
   "checkIntervalSec": 300,
