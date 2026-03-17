@@ -76,6 +76,16 @@ python3 {baseDir}/scripts/failover.py loop
 tail -n 50 ~/.openclaw/failover.log
 \`\`\`
 
+
+### Structured logs (JSON)
+
+The daemon also emits structured JSON lines prefixed with `JSON` for easier parsing.
+
+Example:
+```json
+{"event":"failover_switch","from_model":"A","to_model":"B"}
+```
+
 ## Safety
 
 - Does not delete files
@@ -142,6 +152,16 @@ python3 {baseDir}/scripts/failover.py loop
 \`\`\`bash
 tail -n 50 ~/.openclaw/failover.log
 \`\`\`
+
+
+### 结构化日志（JSON）
+
+日志中会输出以 `JSON` 前缀的结构化记录，便于解析。
+
+示例：
+```json
+{"event":"failover_switch","from_model":"A","to_model":"B"}
+```
 
 ## 安全边界
 
