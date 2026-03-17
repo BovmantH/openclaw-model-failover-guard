@@ -27,7 +27,9 @@ Copy `config.example.json` to `config.json` and modify as needed:
 - `preferredFallbackProvider`: Optional; specify your preferred fallback provider
 - `excludedProviders`: List of providers to exclude from fallback candidates
 - `allowedFallbacks`: Optional; if set, only these models can be selected as fallbacks
-- `candidateProbe`: Enable/disable probe and timeout (default enabled)
+- `candidateProbe`: Enable/disable candidate probe and timeout (default enabled)
+- `failbackProbe`: Enable/disable primary probe before failback (default enabled)
+- `primaryCooldownSec`: Cooldown after a failed failback (default: 600)
 - `candidateCooldown`: Cooldown durations for candidates that fail probes
 - `failoverOnErrors`: Error types that can trigger failover (default: http_429, http_5xx, timeout, connection)
 - `failThreshold`: Failover threshold (default: 3)
@@ -92,6 +94,8 @@ tail -n 50 ~/.openclaw/failover.log
 - \`excludedProviders\`: 不参与兜底的 provider 列表
 - \`allowedFallbacks\`: 可选；设置后只允许这些模型参与兜底
 - \`candidateProbe\`: 候选探测开关与超时（默认启用）
+- \`failbackProbe\`: 切回前主模型探测开关与超时（默认启用）
+- \`primaryCooldownSec\`: 切回失败后的主模型冷却时间（默认 600）
 - \`candidateCooldown\`: 候选失败后的冷却时间配置
 - \`failoverOnErrors\`: 允许触发 failover 的错误类型（默认 http_429, http_5xx, timeout, connection）
 - \`failThreshold\`: 故障切换阈值（默认 3）

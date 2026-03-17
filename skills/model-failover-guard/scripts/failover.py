@@ -26,6 +26,11 @@ def load_runtime_config():
             'enabled': True,
             'timeoutSec': 30,
         },
+        'failbackProbe': {
+            'enabled': True,
+            'timeoutSec': 30,
+        },
+        'primaryCooldownSec': 600,
         'candidateCooldown': {
             'defaultSec': 600,
             'ban400Sec': 3600,
@@ -55,8 +60,10 @@ def load_runtime_config():
     cfg['EXCLUDED_PROVIDERS'] = set(cfg.get('excludedProviders') or [])
     cfg['ALLOWED_FALLBACKS'] = [m for m in (cfg.get('allowedFallbacks') or []) if isinstance(m, str)]
     cfg['CANDIDATE_PROBE'] = cfg.get('candidateProbe') or {}
+    cfg['FAILBACK_PROBE'] = cfg.get('failbackProbe') or {}
     cfg['CANDIDATE_COOLDOWN'] = cfg.get('candidateCooldown') or {}
     cfg['FAILOVER_ON_ERRORS'] = set(cfg.get('failoverOnErrors') or [])
+    cfg['PRIMARY_COOLDOWN_SEC'] = int(cfg.get('primaryCooldownSec', 0) or 0)
     return cfg
 
 
@@ -84,6 +91,7 @@ def load_state():
         'last_switch': None,
         'current_fallback': None,
         'candidate_health': {},
+        'primary_cooldown_until': 0,
     }
 
 
@@ -191,6 +199,32 @@ def _mark_candidate_failure(state, model_id: str, err_type: str, detail: str):
         entry['cooldownUntil'] = _now_ts() + cd
 
 
+def _validate_config(cfg, runtime_cfg):
+    errors = []
+    all_models = list_configured_models(cfg)
+    target_primary = runtime_cfg.get('primaryModel') or get_primary_model(cfg)
+
+    if not target_primary:
+        errors.append('primaryModel is empty and no current primary set')
+    elif target_primary not in all_models:
+        errors.append(f'primaryModel not found in configured models: {target_primary}')
+
+    allowed = runtime_cfg.get('ALLOWED_FALLBACKS') or []
+    for m in allowed:
+        if m not in all_models:
+            errors.append(f'allowedFallbacks contains unknown model: {m}')
+    if allowed and target_primary in allowed:
+        errors.append('primaryModel must not be in allowedFallbacks')
+
+    excluded = runtime_cfg.get('EXCLUDED_PROVIDERS') or set()
+    for m in allowed:
+        provider = m.split('/', 1)[0]
+        if provider in excluded:
+            errors.append(f'allowedFallbacks includes excluded provider: {m}')
+
+    return errors
+
+
 def test_current_default_model():
     cmd = [
         'openclaw', 'agent', '--agent', 'main',
@@ -220,18 +254,32 @@ def _should_probe():
     return bool(probe.get('enabled', True))
 
 
-def _probe_timeout():
-    probe = R.get('CANDIDATE_PROBE') or {}
-    return int(probe.get('timeoutSec', 30) or 30)
+def _probe_timeout(probe_cfg):
+    return int((probe_cfg or {}).get('timeoutSec', 30) or 30)
 
 
 def _probe_candidate(cfg, candidate_model):
     old = R['TEST_TIMEOUT_SEC']
-    R['TEST_TIMEOUT_SEC'] = _probe_timeout()
+    R['TEST_TIMEOUT_SEC'] = _probe_timeout(R.get('CANDIDATE_PROBE'))
     try:
         return try_switch_and_test(cfg, candidate_model)
     finally:
         R['TEST_TIMEOUT_SEC'] = old
+
+
+def _probe_primary(cfg, primary_model):
+    old = R['TEST_TIMEOUT_SEC']
+    R['TEST_TIMEOUT_SEC'] = _probe_timeout(R.get('FAILBACK_PROBE'))
+    try:
+        apply_primary(cfg, primary_model)
+        return test_current_default_model()
+    finally:
+        R['TEST_TIMEOUT_SEC'] = old
+
+
+def _primary_in_cooldown(state):
+    until = int(state.get('primary_cooldown_until') or 0)
+    return until and _now_ts() < until
 
 
 def try_switch_and_test(cfg, candidate_model):
@@ -260,6 +308,8 @@ def pick_working_fallback(cfg, target_primary, state):
     if not candidates:
         return None, 'no fallback candidates'
 
+    log(f'candidate pool: {candidates}')
+
     for c in candidates:
         if _should_probe():
             ok, detail = _probe_candidate(cfg, c)
@@ -276,6 +326,11 @@ def pick_working_fallback(cfg, target_primary, state):
 def run_once():
     state = load_state()
     cfg = load_openclaw_config()
+    errors = _validate_config(cfg, R)
+    if errors:
+        log('CONFIG ERROR: ' + '; '.join(errors))
+        return 2
+
     current = get_primary_model(cfg)
     target_primary = get_target_primary(cfg)
 
@@ -291,6 +346,7 @@ def run_once():
             state['consecutive_failures'] = 0
             state['consecutive_fallback_health'] = 0
             state['current_fallback'] = None
+            state['primary_cooldown_until'] = 0
             save_state(state)
             return 0
 
@@ -328,8 +384,17 @@ def run_once():
         state['consecutive_fallback_health'] = int(state.get('consecutive_fallback_health', 0)) + 1
         log(f'fallback healthy ({state["consecutive_fallback_health"]}/{R["RECOVER_THRESHOLD"]}) on {current}')
         if state['consecutive_fallback_health'] >= R['RECOVER_THRESHOLD']:
-            apply_primary(cfg, target_primary)
-            ok2, detail2 = test_current_default_model()
+            if _primary_in_cooldown(state):
+                log('primary in cooldown; skip failback attempt')
+                save_state(state)
+                return 0
+
+            if (R.get('FAILBACK_PROBE') or {}).get('enabled', True):
+                ok2, detail2 = _probe_primary(cfg, target_primary)
+            else:
+                apply_primary(cfg, target_primary)
+                ok2, detail2 = test_current_default_model()
+
             if ok2:
                 state['last_switch'] = {
                     'from': current,
@@ -339,11 +404,15 @@ def run_once():
                 state['current_fallback'] = None
                 state['consecutive_fallback_health'] = 0
                 state['consecutive_failures'] = 0
+                state['primary_cooldown_until'] = 0
                 save_state(state)
                 log(f'FAILBACK DONE: {current} -> {target_primary}')
                 return 0
+
             apply_primary(cfg, current)
             state['consecutive_fallback_health'] = 0
+            if R['PRIMARY_COOLDOWN_SEC'] > 0:
+                state['primary_cooldown_until'] = _now_ts() + R['PRIMARY_COOLDOWN_SEC']
             save_state(state)
             log(f'FAILBACK ABORT: primary still unstable, reverted to {current}. detail={detail2}')
             return 0

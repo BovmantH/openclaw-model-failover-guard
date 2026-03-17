@@ -10,6 +10,11 @@
     "enabled": true,
     "timeoutSec": 30
   },
+  "failbackProbe": {
+    "enabled": true,
+    "timeoutSec": 30
+  },
+  "primaryCooldownSec": 600,
   "candidateCooldown": {
     "defaultSec": 600,
     "ban400Sec": 3600,
