@@ -31,6 +31,12 @@ def load_runtime_config():
             'timeoutSec': 30,
         },
         'primaryCooldownSec': 600,
+        'compatibility': {
+            'requireSameApi': True,
+            'requireReasoningMatch': False,
+            'requireToolsMatch': False,
+            'requireStreamingMatch': False,
+        },
         'candidateCooldown': {
             'defaultSec': 600,
             'ban400Sec': 3600,
@@ -64,6 +70,7 @@ def load_runtime_config():
     cfg['CANDIDATE_COOLDOWN'] = cfg.get('candidateCooldown') or {}
     cfg['FAILOVER_ON_ERRORS'] = set(cfg.get('failoverOnErrors') or [])
     cfg['PRIMARY_COOLDOWN_SEC'] = int(cfg.get('primaryCooldownSec', 0) or 0)
+    cfg['COMPATIBILITY'] = cfg.get('compatibility') or {}
     return cfg
 
 
@@ -225,6 +232,46 @@ def _validate_config(cfg, runtime_cfg):
     return errors
 
 
+
+
+def _get_model_capabilities(cfg, model_id: str):
+    # Returns (api, reasoning, tools, streaming)
+    provider, mid = model_id.split('/', 1)
+    providers = cfg.get('models', {}).get('providers', {})
+    pdata = providers.get(provider, {})
+    api = pdata.get('api')
+    reasoning = None
+    tools = None
+    streaming = None
+    for mm in pdata.get('models', []) or []:
+        if mm.get('id') == mid:
+            reasoning = mm.get('reasoning')
+            tools = mm.get('tools')
+            streaming = mm.get('streaming')
+            api = mm.get('api', api)
+            break
+    return api, reasoning, tools, streaming
+
+
+def _compatibility_ok(cfg, source_model: str, candidate_model: str):
+    comp = R.get('COMPATIBILITY') or {}
+    if not comp:
+        return True
+    s_api, s_reasoning, s_tools, s_streaming = _get_model_capabilities(cfg, source_model)
+    c_api, c_reasoning, c_tools, c_streaming = _get_model_capabilities(cfg, candidate_model)
+    if comp.get('requireSameApi') and s_api and c_api and s_api != c_api:
+        return False
+    if comp.get('requireReasoningMatch') and s_reasoning is not None and c_reasoning is not None:
+        if bool(s_reasoning) != bool(c_reasoning):
+            return False
+    if comp.get('requireToolsMatch') and s_tools is not None and c_tools is not None:
+        if bool(s_tools) != bool(c_tools):
+            return False
+    if comp.get('requireStreamingMatch') and s_streaming is not None and c_streaming is not None:
+        if bool(s_streaming) != bool(c_streaming):
+            return False
+    return True
+
 def test_current_default_model():
     cmd = [
         'openclaw', 'agent', '--agent', 'main',
@@ -300,6 +347,9 @@ def pick_working_fallback(cfg, target_primary, state):
         if provider in R['EXCLUDED_PROVIDERS']:
             continue
         if _is_in_cooldown(state, m):
+            continue
+        if not _compatibility_ok(cfg, target_primary, m):
+            log(f'candidate filtered by compatibility: {m}')
             continue
         candidates.append(m)
 

@@ -15,6 +15,12 @@
     "timeoutSec": 30
   },
   "primaryCooldownSec": 600,
+  "compatibility": {
+    "requireSameApi": true,
+    "requireReasoningMatch": false,
+    "requireToolsMatch": false,
+    "requireStreamingMatch": false
+  },
   "candidateCooldown": {
     "defaultSec": 600,
     "ban400Sec": 3600,
