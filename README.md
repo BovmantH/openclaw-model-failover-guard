@@ -8,13 +8,16 @@
 flowchart LR
   A[Primary Model Healthy] -->|Check Interval| B{Primary Failures >= Threshold?}
   B -->|No| A
-  B -->|Yes| C[Pick Fallback from Configured Models]
-  C --> D[Switch + Restart Gateway]
-  D --> E{Fallback Stable >= Recover Threshold?}
-  E -->|No| D
-  E -->|Yes| F[Try Failback to Primary]
-  F -->|Success| A
-  F -->|Fail| D
+  B -->|Yes| C[Build Candidate Pool]
+  C --> D[Filter: allowlist / excluded / cooldown / compatibility]
+  D --> E[Probe Candidates]
+  E -->|Any Healthy| F[Switch + Restart Gateway]
+  E -->|None Healthy| A
+  F --> G{Fallback Stable >= Recover Threshold?}
+  G -->|No| F
+  G -->|Yes| H[Probe Primary + Failback]
+  H -->|Success| A
+  H -->|Fail| F
 ```
 
 ---
@@ -125,13 +128,16 @@ A: Not recommended. Run only one instance per machine.
 flowchart LR
   A[主模型健康] -->|按间隔检查| B{连续失败达到阈值?}
   B -->|否| A
-  B -->|是| C[从已配置模型中选择兜底]
-  C --> D[切换并重启 Gateway]
-  D --> E{兜底稳定达到切回阈值?}
-  E -->|否| D
-  E -->|是| F[尝试切回主模型]
-  F -->|成功| A
-  F -->|失败| D
+  B -->|是| C[构建候选池]
+  C --> D[过滤：白名单/排除/冷却/兼容性]
+  D --> E[探测候选]
+  E -->|有健康候选| F[切换并重启 Gateway]
+  E -->|无健康候选| A
+  F --> G{兜底稳定达到切回阈值?}
+  G -->|否| F
+  G -->|是| H[探测主模型并切回]
+  H -->|成功| A
+  H -->|失败| F
 ```
 
 这是一个 OpenClaw 模型自动故障切换 + 自动切回守护技能。
